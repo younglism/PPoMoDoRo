@@ -639,6 +639,13 @@
   // ── 미니 창 (Document Picture-in-Picture) ─────────────
   var pipWin = null;     // 열린 PIP 창
   var pipEls = null;     // PIP 내부 요소 참조
+  var pipOpacity = loadPipOpacity();   // 미니 창 투명도 (0.25~1)
+
+  function loadPipOpacity(){
+    try{ var v=parseFloat(localStorage.getItem("ppomodoro-pip-op")); return (v>=0.25 && v<=1) ? v : 1; }
+    catch(e){ return 1; }
+  }
+  function savePipOpacity(v){ try{ localStorage.setItem("ppomodoro-pip-op", String(v)); }catch(e){} }
 
   // PIP 지원 브라우저에서만 버튼 노출
   var pipSupported = ("documentPictureInPicture" in window);
@@ -655,28 +662,47 @@
     var st=doc.createElement("style");
     st.textContent = ''
       + '*{box-sizing:border-box;margin:0;} html,body{height:100%;}'
-      + 'body{display:flex;align-items:center;justify-content:center;font-family:"Gowun Dodum",sans-serif;'
-      + '  background:#E8493A;color:#fff;transition:background .4s ease;overflow:hidden;user-select:none;}'
-      + 'body[data-phase="short"]{background:#4FAE78;} body[data-phase="long"]{background:#F2A93C;}'
-      + '.p-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2vmin;padding:4vmin;width:100%;height:100%;}'
+      + 'body{font-family:"Gowun Dodum",sans-serif;color:#fff;background:transparent;overflow:hidden;user-select:none;}'
+      + '.p-face{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;'
+      + '  gap:2vmin;padding:4vmin 4vmin 9vmin;background:#E8493A;transition:background .4s ease,opacity .15s ease;}'
+      + 'body[data-phase="short"] .p-face{background:#4FAE78;} body[data-phase="long"] .p-face{background:#F2A93C;}'
       + '.p-badge{font-size:min(7vw,7vh);letter-spacing:.1em;opacity:.9;}'
       + '.p-time{font-family:"Jua",sans-serif;font-size:min(30vw,34vh);line-height:1;'
       + '  font-variant-numeric:tabular-nums;text-shadow:0 2px 0 rgba(0,0,0,.10);}'
       + '.p-toggle{font-family:"Jua",sans-serif;font-size:min(8vw,8vh);color:#fff;cursor:pointer;'
       + '  background:rgba(255,255,255,.22);border:none;border-radius:999px;padding:1.4vmin 6vmin;'
       + '  transition:background .15s ease;}'
-      + '.p-toggle:hover{background:rgba(255,255,255,.34);}'
-      + '.p-toggle:active{transform:translateY(1px);}';
+      + '.p-toggle:hover{background:rgba(255,255,255,.34);} .p-toggle:active{transform:translateY(1px);}'
+      + '.p-controls{position:fixed;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;'
+      + '  gap:7px;padding:5px 12px;}'
+      + '.p-controls .ic{font-size:12px;opacity:.75;color:#fff;}'
+      + '.p-op{width:62%;max-width:150px;accent-color:#fff;cursor:pointer;}';
     doc.head.appendChild(st);
-    // 마크업
-    var wrap=doc.createElement("div"); wrap.className="p-wrap";
+    // 페이스(타이머 + 일시정지) — 투명도가 적용되는 영역
+    var face=doc.createElement("div"); face.className="p-face";
     var badge=doc.createElement("div"); badge.className="p-badge";
     var time=doc.createElement("div"); time.className="p-time";
     var btn=doc.createElement("button"); btn.className="p-toggle"; btn.type="button";
-    wrap.appendChild(badge); wrap.appendChild(time); wrap.appendChild(btn);
-    doc.body.appendChild(wrap);
+    face.appendChild(badge); face.appendChild(time); face.appendChild(btn);
+    // 컨트롤(투명도 슬라이더) — 항상 또렷하게
+    var controls=doc.createElement("div"); controls.className="p-controls";
+    var ic=doc.createElement("span"); ic.className="ic"; ic.textContent="◐";
+    var op=doc.createElement("input"); op.type="range"; op.className="p-op";
+    op.min="25"; op.max="100"; op.step="5"; op.value=String(Math.round(pipOpacity*100)); op.title="투명도 조절";
+    controls.appendChild(ic); controls.appendChild(op);
+
+    doc.body.appendChild(face);
+    doc.body.appendChild(controls);
+
+    face.style.opacity = pipOpacity;
     btn.addEventListener("click", toggle);
-    pipEls = { badge:badge, time:time, btn:btn, body:doc.body };
+    op.addEventListener("input", function(){
+      pipOpacity = (parseInt(op.value,10)||100)/100;
+      face.style.opacity = pipOpacity;
+      savePipOpacity(pipOpacity);
+    });
+
+    pipEls = { badge:badge, time:time, btn:btn, body:doc.body, face:face };
     updatePip();
   }
 
@@ -696,7 +722,7 @@
     }
     if(pipWin){ pipWin.close(); return; }   // 이미 열려 있으면 닫기(토글)
     try{
-      pipWin = await documentPictureInPicture.requestWindow({ width:260, height:230 });
+      pipWin = await documentPictureInPicture.requestWindow({ width:260, height:250 });
     }catch(e){ pipWin=null; return; }
     buildPipContent(pipWin);
     pipBtn.classList.add("on");
