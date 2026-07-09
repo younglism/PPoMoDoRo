@@ -1,0 +1,17 @@
+{
+  "name": "뽀모도로 타이머",
+  "short_name": "뽀모도로",
+  "description": "토마토와 함께하는 집중 타이머 🍅",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FEF4EC",
+  "theme_color": "#E8493A",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

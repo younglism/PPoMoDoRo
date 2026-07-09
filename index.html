@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>뽀모도로 타이머</title>
 <meta name="description" content="토마토와 함께하는 귀여운 뽀모도로 집중 타이머 🍅" />
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#E8493A" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="뽀모도로" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <!-- 토마토 파비콘 -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cellipse cx='50' cy='58' rx='34' ry='30' fill='%23E8493A'/%3E%3Cpath d='M50 22 L53.5 31.1 L63.3 31.7 L55.7 37.9 L58.2 47.3 L50 51 L41.8 47.3 L44.3 37.9 L36.7 31.7 L46.5 31.1 Z' fill='%234FA84A'/%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -356,12 +362,28 @@
   // ── 상태 ─────────────────────────────────────────────
   var CYCLES_PER_SET = 4;              // 긴 휴식까지 필요한 사이클 수
   var dur = { focus:25*60, short:5*60, long:30*60 };  // 초 단위
+
+  // 오늘 기록 저장 (날짜가 바뀌면 자동 0). 저장 불가 환경에선 조용히 메모리만 사용
+  var STORE_KEY = "ppomodoro-today";
+  function todayStr(){ var d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
+  function loadToday(){
+    try{
+      var raw = localStorage.getItem(STORE_KEY);
+      if(!raw) return 0;
+      var o = JSON.parse(raw);
+      return (o && o.date === todayStr()) ? (o.count|0) : 0;
+    }catch(e){ return 0; }
+  }
+  function saveToday(count){
+    try{ localStorage.setItem(STORE_KEY, JSON.stringify({ date: todayStr(), count: count })); }catch(e){}
+  }
+
   var state = {
     phase:"focus",     // focus | short | long
     remaining:dur.focus,
     running:false,
     cyclesInSet:0,     // 이번 세트에서 완료한 사이클 (0~4)
-    todayTotal:0       // 오늘 완료한 뽀모도로 총합
+    todayTotal:loadToday()   // 오늘 완료한 뽀모도로 총합 (저장된 값 복원)
   };
 
   var PHASE_INFO = {
@@ -529,6 +551,7 @@
       // 짧은 휴식 끝 → 1 사이클(1 뽀모도로) 완료
       state.cyclesInSet++;
       state.todayTotal++;
+      saveToday(state.todayTotal);
       var reachedSet = state.cyclesInSet >= CYCLES_PER_SET;
       chime(reachedSet ? "long" : "short");
       goPhase("focus", !reachedSet);   // 4 사이클 채우면 멈추고 긴 휴식 유도
@@ -561,6 +584,7 @@
   resetDayBtn.addEventListener("click", function(){
     state.cyclesInSet = 0;      // 세트 사이클 리셋
     state.todayTotal = 0;       // 오늘 기록 리셋
+    saveToday(0);               // 저장된 기록도 초기화
     goPhase("focus", false);    // 타이머·상태를 맨 처음(집중 25:00·정지)으로
   });
 
@@ -600,6 +624,14 @@
   // 초기 렌더
   render(false);
 })();
+</script>
+<script>
+  // 앱 설치·오프라인 지원 (GitHub Pages 등 http(s) 환경에서 동작)
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js").catch(function () {});
+    });
+  }
 </script>
 </body>
 </html>
