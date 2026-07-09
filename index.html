@@ -209,6 +209,16 @@
   }
   .notice b{ color:var(--ink); font-weight:400; font-family:"Jua",sans-serif; }
 
+  /* 미니 창(PIP) 버튼 */
+  .pip-open{
+    width:100%; margin-top:12px; padding:12px; border-radius:14px; font-size:14.5px;
+    color:var(--accent-deep); background:#FBEEE4; border:1.5px solid #E6C9B7;
+    font-family:"Gowun Dodum",sans-serif; cursor:pointer; transition:background .15s ease, border-color .15s ease;
+  }
+  .pip-open:hover{ background:#F5E2D4; border-color:#DAB49E; }
+  .pip-open:active{ transform:translateY(1px); }
+  .pip-open.on{ background:var(--accent); color:#fff; border-color:transparent; }
+
   /* 오늘 기록 */
   .today{ margin-top:16px; text-align:center; font-size:14.5px; color:var(--ink); }
   .today .count{ font-family:"Jua",sans-serif; color:var(--tomato); font-size:20px; }
@@ -324,6 +334,8 @@
       </div>
 
       <p class="notice" id="notice"></p>
+
+      <button class="pip-open" id="pipBtn" hidden>🪟 미니 창으로 띄우기</button>
     </div>
 
     <div class="today">
@@ -403,6 +415,7 @@
   var longReady=$("longReady"), longActive=$("longActive");
   var todayCount=$("todayCount"), resetDayBtn=$("resetDayBtn");
   var settingsToggle=$("settingsToggle"), settings=$("settings");
+  var pipBtn=$("pipBtn");
 
   ring.style.strokeDasharray = C;
 
@@ -496,6 +509,8 @@
     document.title = state.running
       ? fmt(state.remaining)+" · "+info.tab+" | 뽀모도로"
       : "뽀모도로 타이머";
+
+    updatePip();
   }
 
   // ── 타이머 엔진 ───────────────────────────────────────
@@ -620,6 +635,79 @@
       });
     });
   });
+
+  // ── 미니 창 (Document Picture-in-Picture) ─────────────
+  var pipWin = null;     // 열린 PIP 창
+  var pipEls = null;     // PIP 내부 요소 참조
+
+  // PIP 지원 브라우저에서만 버튼 노출
+  var pipSupported = ("documentPictureInPicture" in window);
+  if(pipSupported){ pipBtn.hidden = false; }
+
+  function buildPipContent(win){
+    var doc = win.document;
+    doc.documentElement.lang = "ko";
+    // 폰트
+    var f1=doc.createElement("link"); f1.rel="preconnect"; f1.href="https://fonts.googleapis.com"; doc.head.appendChild(f1);
+    var f2=doc.createElement("link"); f2.rel="stylesheet";
+    f2.href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap"; doc.head.appendChild(f2);
+    // 스타일 (창 크기에 따라 글자도 스케일)
+    var st=doc.createElement("style");
+    st.textContent = ''
+      + '*{box-sizing:border-box;margin:0;} html,body{height:100%;}'
+      + 'body{display:flex;align-items:center;justify-content:center;font-family:"Gowun Dodum",sans-serif;'
+      + '  background:#E8493A;color:#fff;transition:background .4s ease;overflow:hidden;user-select:none;}'
+      + 'body[data-phase="short"]{background:#4FAE78;} body[data-phase="long"]{background:#F2A93C;}'
+      + '.p-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2vmin;padding:4vmin;width:100%;height:100%;}'
+      + '.p-badge{font-size:min(7vw,7vh);letter-spacing:.1em;opacity:.9;}'
+      + '.p-time{font-family:"Jua",sans-serif;font-size:min(30vw,34vh);line-height:1;'
+      + '  font-variant-numeric:tabular-nums;text-shadow:0 2px 0 rgba(0,0,0,.10);}'
+      + '.p-toggle{font-family:"Jua",sans-serif;font-size:min(8vw,8vh);color:#fff;cursor:pointer;'
+      + '  background:rgba(255,255,255,.22);border:none;border-radius:999px;padding:1.4vmin 6vmin;'
+      + '  transition:background .15s ease;}'
+      + '.p-toggle:hover{background:rgba(255,255,255,.34);}'
+      + '.p-toggle:active{transform:translateY(1px);}';
+    doc.head.appendChild(st);
+    // 마크업
+    var wrap=doc.createElement("div"); wrap.className="p-wrap";
+    var badge=doc.createElement("div"); badge.className="p-badge";
+    var time=doc.createElement("div"); time.className="p-time";
+    var btn=doc.createElement("button"); btn.className="p-toggle"; btn.type="button";
+    wrap.appendChild(badge); wrap.appendChild(time); wrap.appendChild(btn);
+    doc.body.appendChild(wrap);
+    btn.addEventListener("click", toggle);
+    pipEls = { badge:badge, time:time, btn:btn, body:doc.body };
+    updatePip();
+  }
+
+  function updatePip(){
+    if(!pipEls) return;
+    var info = PHASE_INFO[state.phase];
+    pipEls.body.setAttribute("data-phase", state.phase);
+    pipEls.badge.textContent = info.label;
+    pipEls.time.textContent = fmt(state.remaining);
+    pipEls.btn.textContent = state.running ? "❚❚" : "▶";
+  }
+
+  async function openPip(){
+    if(!pipSupported){
+      alert("이 브라우저는 미니 창을 지원하지 않아요.\n크롬 또는 엣지 최신 버전에서 사용해 주세요.");
+      return;
+    }
+    if(pipWin){ pipWin.close(); return; }   // 이미 열려 있으면 닫기(토글)
+    try{
+      pipWin = await documentPictureInPicture.requestWindow({ width:260, height:230 });
+    }catch(e){ pipWin=null; return; }
+    buildPipContent(pipWin);
+    pipBtn.classList.add("on");
+    pipBtn.textContent = "🪟 미니 창 닫기";
+    pipWin.addEventListener("pagehide", function(){
+      pipWin=null; pipEls=null;
+      pipBtn.classList.remove("on");
+      pipBtn.textContent = "🪟 미니 창으로 띄우기";
+    });
+  }
+  pipBtn.addEventListener("click", openPip);
 
   // 초기 렌더
   render(false);
