@@ -335,7 +335,7 @@
 
       <p class="notice" id="notice"></p>
 
-      <button class="pip-open" id="pipBtn" hidden>🪟 미니 창으로 띄우기</button>
+      <button class="pip-open" id="pipBtn">🪟 미니 창으로 띄우기</button>
     </div>
 
     <div class="today">
@@ -647,9 +647,8 @@
   }
   function savePipOpacity(v){ try{ localStorage.setItem("ppomodoro-pip-op", String(v)); }catch(e){} }
 
-  // PIP 지원 브라우저에서만 버튼 노출
+  // 미니 창 지원 여부 (미지원 브라우저에선 클릭 시 안내)
   var pipSupported = ("documentPictureInPicture" in window);
-  if(pipSupported){ pipBtn.hidden = false; }
 
   function buildPipContent(win){
     var doc = win.document;

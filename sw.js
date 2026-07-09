@@ -1,5 +1,5 @@
-// 뽀모도로 타이머 서비스워커 — 오프라인 지원
-const CACHE = "ppomodoro-v1";
+// 뽀모도로 타이머 서비스워커 — 오프라인 지원 + 최신 화면 우선
+const CACHE = "ppomodoro-v2";   // 버전 올리면 이전 캐시 자동 정리
 const ASSETS = [
   "./",
   "./index.html",
@@ -26,19 +26,39 @@ self.addEventListener("activate", (e) => {
   self.clients.claim();
 });
 
-// 캐시 우선, 없으면 네트워크 → 성공 시 캐시에 저장 (폰트 등 포함)
 self.addEventListener("fetch", (e) => {
-  if (e.request.method !== "GET") return;
-  e.respondWith(
-    caches.match(e.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(e.request)
+  const req = e.request;
+  if (req.method !== "GET") return;
+
+  const isHTML = req.mode === "navigate" || req.destination === "document";
+
+  if (isHTML) {
+    // 화면(HTML)은 항상 최신 우선: 네트워크 먼저, 실패하면 캐시
+    e.respondWith(
+      fetch(req)
         .then((res) => {
           const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
+          caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
           return res;
         })
-        .catch(() => cached);
+        .catch(() => caches.match(req).then((r) => r || caches.match("./index.html")))
+    );
+    return;
+  }
+
+  // 그 외 정적 파일(아이콘·폰트 등): 캐시 우선, 없으면 네트워크
+  e.respondWith(
+    caches.match(req).then((cached) => {
+      return (
+        cached ||
+        fetch(req)
+          .then((res) => {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
+            return res;
+          })
+          .catch(() => cached)
+      );
     })
   );
 });
