@@ -244,6 +244,27 @@
 
   .foot{ text-align:center; margin-top:22px; font-size:12.5px; color:#6E4C3C; }
 
+  /* 미니 창 실행 중: 큰 창은 최소 화면으로 접기 */
+  .mini-note{ display:none; text-align:center; padding:24px 8px; }
+  body.mini-active header,
+  body.mini-active .card,
+  body.mini-active .today,
+  body.mini-active .settings-toggle,
+  body.mini-active .settings,
+  body.mini-active .foot{ display:none !important; }
+  body.mini-active .mini-note{ display:block; }
+  .mini-note-tomato{ font-size:52px; line-height:1; }
+  .mini-note-title{ margin:12px 0 4px; font-family:"Jua",sans-serif; font-size:20px; color:var(--ink); }
+  .mini-note-sub{ margin:0 0 18px; font-size:13.5px; color:var(--muted); line-height:1.6; }
+  .mini-note-sub b{ color:var(--accent-deep); font-family:"Jua",sans-serif; }
+  .mini-note-btn{
+    padding:13px 22px; border-radius:16px; font-size:15.5px; color:#fff;
+    background:var(--accent); box-shadow:0 12px 22px -12px var(--accent-deep);
+    font-family:"Jua",sans-serif; letter-spacing:.3px; transition:transform .1s ease, filter .15s ease;
+  }
+  .mini-note-btn:hover{ filter:brightness(1.05); }
+  .mini-note-btn:active{ transform:translateY(2px); }
+
   @media (prefers-reduced-motion: reduce){
     *{ animation:none !important; }
     .progress-ring{ transition:stroke .3s ease; }
@@ -365,6 +386,14 @@
     </div>
 
     <p class="foot">스페이스바 = 시작/일시정지 · R = 리셋</p>
+
+    <!-- 미니 창 실행 중일 때 큰 창에 표시되는 최소 화면 -->
+    <div class="mini-note" id="miniNote">
+      <div class="mini-note-tomato">🍅</div>
+      <p class="mini-note-title">미니 창에서 실행 중이에요</p>
+      <p class="mini-note-sub">작은 타이머를 보며 집중해 보세요.<br>미니 창의 <b>⤢</b> 버튼으로도 돌아올 수 있어요.</p>
+      <button class="mini-note-btn" id="restoreBtn">🔎 큰 화면으로 돌아가기</button>
+    </div>
   </div>
 
 <script>
@@ -416,6 +445,7 @@
   var todayCount=$("todayCount"), resetDayBtn=$("resetDayBtn");
   var settingsToggle=$("settingsToggle"), settings=$("settings");
   var pipBtn=$("pipBtn");
+  var miniNote=$("miniNote"), restoreBtn=$("restoreBtn");
 
   ring.style.strokeDasharray = C;
 
@@ -724,15 +754,23 @@
       pipWin = await documentPictureInPicture.requestWindow({ width:260, height:250 });
     }catch(e){ pipWin=null; return; }
     buildPipContent(pipWin);
+    document.body.classList.add("mini-active");   // 큰 창 접기
     pipBtn.classList.add("on");
     pipBtn.textContent = "🪟 미니 창 닫기";
     pipWin.addEventListener("pagehide", function(){
       pipWin=null; pipEls=null;
+      document.body.classList.remove("mini-active");   // 큰 창 복원
       pipBtn.classList.remove("on");
       pipBtn.textContent = "🪟 미니 창으로 띄우기";
     });
   }
   pipBtn.addEventListener("click", openPip);
+
+  // 큰 화면으로 돌아가기 (미니 창 닫으면 자동 복원)
+  restoreBtn.addEventListener("click", function(){
+    if(pipWin){ pipWin.close(); }
+    try{ window.focus(); }catch(e){}
+  });
 
   // 초기 렌더
   render(false);
